@@ -11,11 +11,18 @@ export type Stroke = {
   size: number;
 };
 
+export type LayerFilters = {
+  brightness: number; // 0-200 (100 is default)
+  contrast: number;   // 0-200 (100 is default)
+  blur: number;       // 0-20px (0 is default)
+};
+
 export type Layer = {
   id: string;
   name: string;
   visible: boolean;
   opacity: number;
+  filters: LayerFilters;
   strokes: Stroke[];
 };
 
@@ -25,22 +32,15 @@ interface CanvasState {
   activeTool: ToolType;
   brushColor: string;
   brushSize: number;
-  
-  // Spatial Canvas (Figma-style)
   zoom: number;
   pan: { x: number; y: number };
-  
-  // AI Engine (Midjourney-style)
   isGenerating: boolean;
   generatedImages: string[];
   aiStyle: string;
   aiAspectRatio: string;
-  
-  // History State
   history: Layer[][];
   historyIndex: number;
 
-  // Actions
   saveHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -57,6 +57,7 @@ interface CanvasState {
   setActiveLayer: (id: string) => void;
   toggleLayerVisibility: (id: string) => void;
   setLayerOpacity: (id: string, opacity: number) => void;
+  setLayerFilter: (id: string, filterType: keyof LayerFilters, value: number) => void;
   reorderLayers: (newOrder: Layer[]) => void;
   addStrokeToActiveLayer: (stroke: Stroke) => void;
   setGenerating: (status: boolean) => void;
@@ -64,7 +65,8 @@ interface CanvasState {
 }
 
 const initialLayerId = crypto.randomUUID();
-const initialLayers = [{ id: initialLayerId, name: 'Background', visible: true, opacity: 100, strokes: [] }];
+const defaultFilters: LayerFilters = { brightness: 100, contrast: 100, blur: 0 };
+const initialLayers = [{ id: initialLayerId, name: 'Background', visible: true, opacity: 100, filters: defaultFilters, strokes: [] }];
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   layers: initialLayers,
@@ -116,7 +118,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => {
       const newLayerId = crypto.randomUUID();
       return {
-        layers: [{ id: newLayerId, name: `Layer ${state.layers.length + 1}`, visible: true, opacity: 100, strokes: [] }, ...state.layers],
+        layers: [{ id: newLayerId, name: `Layer ${state.layers.length + 1}`, visible: true, opacity: 100, filters: { ...defaultFilters }, strokes: [] }, ...state.layers],
         activeLayerId: newLayerId
       };
     });
@@ -136,15 +138,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setActiveLayer: (id) => set({ activeLayerId: id }),
   
   toggleLayerVisibility: (id) => {
-    set((state) => ({
-      layers: state.layers.map(l => l.id === id ? { ...l, visible: !l.visible } : l)
-    }));
+    set((state) => ({ layers: state.layers.map(l => l.id === id ? { ...l, visible: !l.visible } : l) }));
     get().saveHistory();
   },
 
   setLayerOpacity: (id, opacity) => set((state) => ({
     layers: state.layers.map(l => l.id === id ? { ...l, opacity } : l)
   })),
+
+  setLayerFilter: (id, filterType, value) => {
+    set((state) => ({
+      layers: state.layers.map(l => l.id === id ? { ...l, filters: { ...l.filters, [filterType]: value } } : l)
+    }));
+    // We don't save history for every slider tick to prevent lag, only on drag end (handled in UI)
+  },
 
   reorderLayers: (newOrder) => {
     set({ layers: newOrder });
