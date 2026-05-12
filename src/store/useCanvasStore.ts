@@ -12,9 +12,9 @@ export type Stroke = {
 };
 
 export type LayerFilters = {
-  brightness: number; // 0-200 (100 is default)
-  contrast: number;   // 0-200 (100 is default)
-  blur: number;       // 0-20px (0 is default)
+  brightness: number;
+  contrast: number;
+  blur: number;
 };
 
 export type Layer = {
@@ -34,6 +34,7 @@ interface CanvasState {
   brushSize: number;
   zoom: number;
   pan: { x: number; y: number };
+  showGrid: boolean;
   isGenerating: boolean;
   generatedImages: string[];
   aiStyle: string;
@@ -49,6 +50,7 @@ interface CanvasState {
   setBrushSize: (size: number) => void;
   setZoom: (zoom: number | ((z: number) => number)) => void;
   setPan: (pan: { x: number; y: number } | ((p: { x: number; y: number }) => { x: number; y: number })) => void;
+  setShowGrid: (show: boolean) => void;
   setAiStyle: (style: string) => void;
   setAiAspectRatio: (ratio: string) => void;
   
@@ -62,6 +64,9 @@ interface CanvasState {
   addStrokeToActiveLayer: (stroke: Stroke) => void;
   setGenerating: (status: boolean) => void;
   addGeneratedImage: (url: string) => void;
+  
+  clearCanvas: () => void;
+  loadProject: (projectData: any) => void;
 }
 
 const initialLayerId = crypto.randomUUID();
@@ -76,6 +81,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   brushSize: 5,
   zoom: 1,
   pan: { x: 0, y: 0 },
+  showGrid: true,
   isGenerating: false,
   generatedImages: [],
   aiStyle: 'Cinematic',
@@ -86,7 +92,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   saveHistory: () => set((state) => {
     const newHistory = state.history.slice(0, state.historyIndex + 1);
     newHistory.push(JSON.parse(JSON.stringify(state.layers))); 
-    if (newHistory.length > 20) newHistory.shift(); 
+    if (newHistory.length > 30) newHistory.shift(); 
     return { history: newHistory, historyIndex: newHistory.length - 1 };
   }),
 
@@ -111,6 +117,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setBrushSize: (size) => set({ brushSize: size }),
   setZoom: (zoom) => set((state) => ({ zoom: typeof zoom === 'function' ? zoom(state.zoom) : zoom })),
   setPan: (pan) => set((state) => ({ pan: typeof pan === 'function' ? pan(state.pan) : pan })),
+  setShowGrid: (show) => set({ showGrid: show }),
   setAiStyle: (style) => set({ aiStyle: style }),
   setAiAspectRatio: (ratio) => set({ aiAspectRatio: ratio }),
   
@@ -150,7 +157,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set((state) => ({
       layers: state.layers.map(l => l.id === id ? { ...l, filters: { ...l.filters, [filterType]: value } } : l)
     }));
-    // We don't save history for every slider tick to prevent lag, only on drag end (handled in UI)
   },
 
   reorderLayers: (newOrder) => {
@@ -166,5 +172,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   setGenerating: (status) => set({ isGenerating: status }),
-  addGeneratedImage: (url) => set((state) => ({ generatedImages: [url, ...state.generatedImages] }))
+  addGeneratedImage: (url) => set((state) => ({ generatedImages: [url, ...state.generatedImages] })),
+
+  clearCanvas: () => {
+    const newLayerId = crypto.randomUUID();
+    const newLayers = [{ id: newLayerId, name: 'Background', visible: true, opacity: 100, filters: { ...defaultFilters }, strokes: [] }];
+    set({ layers: newLayers, activeLayerId: newLayerId, history: [newLayers], historyIndex: 0, pan: {x:0, y:0}, zoom: 1 });
+  },
+
+  loadProject: (projectData) => {
+    try {
+      if (projectData && projectData.layers && Array.isArray(projectData.layers)) {
+        set({ 
+          layers: projectData.layers, 
+          activeLayerId: projectData.layers[0]?.id || crypto.randomUUID(),
+          history: [projectData.layers],
+          historyIndex: 0,
+          zoom: 1,
+          pan: { x: 0, y: 0 }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load project", e);
+    }
+  }
 }));
