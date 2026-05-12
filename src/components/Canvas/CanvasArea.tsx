@@ -8,26 +8,16 @@ export const CanvasArea: React.FC = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
   
-  const { 
-    layers, 
-    activeLayerId, 
-    activeTool, 
-    brushColor, 
-    brushSize,
-    addStrokeToActiveLayer 
-  } = useCanvasStore();
+  const { layers, activeLayerId, activeTool, brushColor, brushSize, addStrokeToActiveLayer } = useCanvasStore();
 
   const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (activeTool === 'move') return; // Cannot draw with the move tool
+    if (activeTool === 'move') return;
     
     e.currentTarget.setPointerCapture(e.pointerId);
     const coords = getCoordinates(e);
@@ -36,7 +26,7 @@ export const CanvasArea: React.FC = () => {
     setIsDrawing(true);
     setCurrentStroke({
       id: crypto.randomUUID(),
-      tool: activeTool === 'eraser' ? 'eraser' : 'brush',
+      tool: activeTool,
       color: activeTool === 'eraser' ? '#000000' : brushColor,
       size: brushSize,
       points: [coords]
@@ -50,6 +40,11 @@ export const CanvasArea: React.FC = () => {
 
     setCurrentStroke(prev => {
       if (!prev) return prev;
+      // For shapes, we only need the start point and current point
+      if (prev.tool === 'rect' || prev.tool === 'circle') {
+        return { ...prev, points: [prev.points[0], coords] };
+      }
+      // For brush, keep adding points
       return { ...prev, points: [...prev.points, coords] };
     });
   };
@@ -57,7 +52,7 @@ export const CanvasArea: React.FC = () => {
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     setIsDrawing(false);
-    if (currentStroke && currentStroke.points.length > 0) {
+    if (currentStroke && currentStroke.points.length > 1) {
       addStrokeToActiveLayer(currentStroke);
     }
     setCurrentStroke(null);
@@ -88,15 +83,10 @@ export const CanvasArea: React.FC = () => {
         if (stroke.points.length < 2) return;
         
         offCtx.beginPath();
-        offCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
-        for (let i = 1; i < stroke.points.length; i++) {
-          offCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
-        }
-
         offCtx.lineCap = 'round';
         offCtx.lineJoin = 'round';
         offCtx.lineWidth = stroke.size;
-        
+
         if (stroke.tool === 'eraser') {
           offCtx.globalCompositeOperation = 'destination-out';
           offCtx.strokeStyle = 'rgba(0,0,0,1)';
@@ -104,8 +94,27 @@ export const CanvasArea: React.FC = () => {
           offCtx.globalCompositeOperation = 'source-over';
           offCtx.strokeStyle = stroke.color;
         }
-        
-        offCtx.stroke();
+
+        const start = stroke.points[0];
+        const end = stroke.points[stroke.points.length - 1];
+
+        if (stroke.tool === 'brush' || stroke.tool === 'eraser') {
+          offCtx.moveTo(start.x, start.y);
+          for (let i = 1; i < stroke.points.length; i++) {
+            offCtx.lineTo(stroke.points[i].x, stroke.points[i].y);
+          }
+          offCtx.stroke();
+        } 
+        else if (stroke.tool === 'rect') {
+          const width = end.x - start.x;
+          const height = end.y - start.y;
+          offCtx.strokeRect(start.x, start.y, width, height);
+        }
+        else if (stroke.tool === 'circle') {
+          const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+          offCtx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
+          offCtx.stroke();
+        }
       });
 
       ctx.globalAlpha = layer.opacity / 100;
@@ -122,7 +131,6 @@ export const CanvasArea: React.FC = () => {
         renderCanvas();
       }
     };
-    
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     return () => window.removeEventListener('resize', resizeCanvas);
@@ -133,7 +141,7 @@ export const CanvasArea: React.FC = () => {
   }, [renderCanvas]);
 
   return (
-    <div ref={containerRef} className="w-full h-full relative cursor-crosshair rounded-xl overflow-hidden shadow-inner bg-white dark:bg-zinc-900/50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=')]">
+    <div ref={containerRef} className={`w-full h-full relative rounded-xl overflow-hidden shadow-inner bg-white dark:bg-zinc-900/50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=')] ${activeTool === 'move' ? 'cursor-grab' : 'cursor-crosshair'}`}>
       <motion.canvas
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
