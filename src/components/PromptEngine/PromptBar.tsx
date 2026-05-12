@@ -1,4 +1,4 @@
-======= FILE: src/components/PromptEngine/PromptBar.tsx =======
+
 import React, { useState } from 'react';
 import { Wand2, Sparkles, Loader2 } from 'lucide-react';
 import { useCanvasStore } from '../../store/useCanvasStore';
