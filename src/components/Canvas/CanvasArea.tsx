@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useCanvasStore, Point, Stroke } from '../../store/useCanvasStore';
 import { motion } from 'framer-motion';
@@ -28,6 +27,8 @@ export const CanvasArea: React.FC = () => {
   };
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activeTool === 'move') return; // Cannot draw with the move tool
+    
     e.currentTarget.setPointerCapture(e.pointerId);
     const coords = getCoordinates(e);
     if (!coords) return;
@@ -35,8 +36,8 @@ export const CanvasArea: React.FC = () => {
     setIsDrawing(true);
     setCurrentStroke({
       id: crypto.randomUUID(),
-      tool: activeTool,
-      color: activeTool === 'eraser' ? '#000000' : brushColor, // Eraser uses destination-out
+      tool: activeTool === 'eraser' ? 'eraser' : 'brush',
+      color: activeTool === 'eraser' ? '#000000' : brushColor,
       size: brushSize,
       points: [coords]
     });
@@ -68,14 +69,11 @@ export const CanvasArea: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear main canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Render layers back to front
     [...layers].reverse().forEach(layer => {
       if (!layer.visible) return;
 
-      // Create offscreen canvas for layer opacity & blending
       const offCanvas = document.createElement('canvas');
       offCanvas.width = canvas.width;
       offCanvas.height = canvas.height;
@@ -112,12 +110,11 @@ export const CanvasArea: React.FC = () => {
 
       ctx.globalAlpha = layer.opacity / 100;
       ctx.drawImage(offCanvas, 0, 0);
-      ctx.globalAlpha = 1.0; // Reset
+      ctx.globalAlpha = 1.0;
     });
   }, [layers, currentStroke, activeLayerId]);
 
   useEffect(() => {
-    // Handle resize
     const resizeCanvas = () => {
       if (containerRef.current && canvasRef.current) {
         canvasRef.current.width = containerRef.current.clientWidth;
@@ -131,7 +128,6 @@ export const CanvasArea: React.FC = () => {
     return () => window.removeEventListener('resize', resizeCanvas);
   }, []);
 
-  // Re-render on state change
   useEffect(() => {
     requestAnimationFrame(renderCanvas);
   }, [renderCanvas]);
