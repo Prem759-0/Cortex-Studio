@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { Eye, EyeOff, Plus, Trash2, Layers } from 'lucide-react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const LayersPanel: React.FC = () => {
   const { layers, activeLayerId, setActiveLayer, addLayer, removeLayer, toggleLayerVisibility, setLayerOpacity } = useCanvasStore();
