@@ -1,4 +1,4 @@
-======= FILE: src/components/Canvas/CanvasArea.tsx =======
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useCanvasStore, Point, Stroke } from '../../store/useCanvasStore';
 import { motion } from 'framer-motion';
