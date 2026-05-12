@@ -1,4 +1,4 @@
-======= FILE: src/store/useCanvasStore.ts =======
+
 import { create } from 'zustand';
 
 export type Point = { x: number; y: number };
