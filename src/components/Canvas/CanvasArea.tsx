@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useCanvasStore, Point, Stroke } from '../../store/useCanvasStore';
 import { motion } from 'framer-motion';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
 export const CanvasArea: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -13,7 +13,7 @@ export const CanvasArea: React.FC = () => {
   
   const { 
     layers, activeLayerId, activeTool, brushColor, brushSize, 
-    zoom, setZoom, pan, setPan, addStrokeToActiveLayer 
+    zoom, setZoom, pan, setPan, showGrid, addStrokeToActiveLayer 
   } = useCanvasStore();
 
   const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
@@ -85,6 +85,20 @@ export const CanvasArea: React.FC = () => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw Grid
+    if (showGrid) {
+      ctx.save();
+      ctx.strokeStyle = document.documentElement.classList.contains('dark') ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      ctx.lineWidth = 1;
+      const gridSize = 50;
+      
+      ctx.beginPath();
+      for (let x = 0; x <= canvas.width; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); }
+      for (let y = 0; y <= canvas.height; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     [...layers].reverse().forEach(layer => {
       if (!layer.visible) return;
 
@@ -126,14 +140,13 @@ export const CanvasArea: React.FC = () => {
         }
       });
 
-      // APPLY PROFESSIONAL CSS FILTERS
       ctx.globalAlpha = layer.opacity / 100;
       ctx.filter = `brightness(${layer.filters.brightness}%) contrast(${layer.filters.contrast}%) blur(${layer.filters.blur}px)`;
       ctx.drawImage(offCanvas, 0, 0);
-      ctx.filter = 'none'; // Reset
+      ctx.filter = 'none';
       ctx.globalAlpha = 1.0;
     });
-  }, [layers, currentStroke, activeLayerId]);
+  }, [layers, currentStroke, activeLayerId, showGrid]);
 
   useEffect(() => {
     const resizeCanvas = () => {
@@ -150,13 +163,15 @@ export const CanvasArea: React.FC = () => {
   useEffect(() => { requestAnimationFrame(renderCanvas); }, [renderCanvas]);
 
   return (
-    <div ref={containerRef} onWheel={handleWheel} className="w-full h-full relative overflow-hidden bg-zinc-100 dark:bg-zinc-950/80 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=')]">
-      <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', transition: isPanning ? 'none' : 'transform 0.1s ease-out' }} className={`absolute top-1/2 left-1/2 -mt-[540px] -ml-[960px] w-[1920px] h-[1080px] bg-white shadow-2xl transition-transform ${activeTool === 'pan' || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`}>
+    <div ref={containerRef} onWheel={handleWheel} className="w-full h-full relative overflow-hidden bg-zinc-200/50 dark:bg-zinc-950/80">
+      <div style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', transition: isPanning ? 'none' : 'transform 0.1s ease-out' }} className={`absolute top-1/2 left-1/2 -mt-[540px] -ml-[960px] w-[1920px] h-[1080px] bg-white dark:bg-zinc-900 shadow-2xl transition-transform ${activeTool === 'pan' || isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-crosshair'}`}>
         <motion.canvas initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }} ref={canvasRef} id="cortex-main-canvas" className="absolute inset-0 w-full h-full touch-none" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onContextMenu={(e) => e.preventDefault()} />
       </div>
       <div className="absolute bottom-6 right-6 flex items-center bg-background/80 backdrop-blur-md rounded-xl shadow-lg border border-border p-1 z-50">
         <button onClick={() => setZoom(z => Math.max(0.1, z - 0.1))} className="p-2 hover:bg-secondary rounded-lg"><ZoomOut className="w-4 h-4" /></button>
-        <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }} className="px-3 text-xs font-mono font-bold hover:bg-secondary rounded-lg">{(zoom * 100).toFixed(0)}%</button>
+        <button onClick={() => { setZoom(1); setPan({x: 0, y: 0}); }} className="px-3 text-xs font-mono font-bold hover:bg-secondary rounded-lg flex items-center gap-2">
+          <Maximize className="w-3 h-3" /> {(zoom * 100).toFixed(0)}%
+        </button>
         <button onClick={() => setZoom(z => Math.min(5, z + 0.1))} className="p-2 hover:bg-secondary rounded-lg"><ZoomIn className="w-4 h-4" /></button>
       </div>
     </div>
