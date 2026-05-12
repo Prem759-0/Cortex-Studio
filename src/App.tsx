@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Palette, Download, Eraser, Moon, Sun, 
-  History, Layout, MousePointer2, Share2, Square, Circle, 
-  Undo2, Redo2, Highlighter, Sparkles, Hand
+  Palette, Download, Eraser, Moon, Sun, Upload,
+  Layout, MousePointer2, Square, Circle, Grid3X3, Trash2,
+  Undo2, Redo2, Highlighter, Sparkles, Hand, Save
 } from 'lucide-react';
 
 import { CanvasArea } from './components/Canvas/CanvasArea';
@@ -16,11 +16,12 @@ import { useCanvasStore } from './store/useCanvasStore';
 const App: React.FC = () => {
   const { 
     activeTool, setTool, brushColor, setBrushColor, brushSize, setBrushSize,
-    undo, redo, historyIndex, history
+    undo, redo, historyIndex, history, showGrid, setShowGrid, layers, loadProject, clearCanvas
   } = useCanvasStore();
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportTransparent, setExportTransparent] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleTheme = () => document.documentElement.classList.toggle('dark');
 
@@ -37,28 +38,43 @@ const App: React.FC = () => {
     return () => { window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp); };
   }, [undo, redo, setTool]);
 
-  const handleExport = () => {
+  const handleExportPNG = () => {
     const canvas = document.getElementById('cortex-main-canvas') as HTMLCanvasElement;
     if (!canvas) return;
-    
-    // Create an offscreen canvas for final composition
     const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = canvas.width;
-    finalCanvas.height = canvas.height;
+    finalCanvas.width = canvas.width; finalCanvas.height = canvas.height;
     const ctx = finalCanvas.getContext('2d');
     if (!ctx) return;
-
-    if (!exportTransparent) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-    }
-    
+    if (!exportTransparent) { ctx.fillStyle = document.documentElement.classList.contains('dark') ? '#18181b' : '#ffffff'; ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height); }
     ctx.drawImage(canvas, 0, 0);
     const link = document.createElement('a');
     link.download = `Cortex_Export_${Date.now()}.png`;
     link.href = finalCanvas.toDataURL('image/png');
     link.click();
     setShowExportModal(false);
+  };
+
+  const handleSaveProject = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ version: "5.0", layers }));
+    const link = document.createElement('a');
+    link.download = `Project_${Date.now()}.cortex`;
+    link.href = dataStr;
+    link.click();
+    setShowExportModal(false);
+  };
+
+  const handleLoadProject = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        loadProject(json);
+      } catch (err) { alert("Invalid .cortex file format."); }
+    };
+    reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
@@ -70,35 +86,45 @@ const App: React.FC = () => {
           </motion.div>
           <div>
             <h1 className="font-display font-bold text-lg leading-none tracking-tight">Cortex Studio</h1>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">v3.0 Ultra</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-primary font-bold">v5.0 Pro</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-secondary/50 rounded-xl p-1 border border-border mr-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-secondary/50 rounded-xl p-1 border border-border">
             <button onClick={undo} disabled={historyIndex === 0} className="p-2 rounded-lg hover:bg-background disabled:opacity-30 transition-colors"><Undo2 className="w-4 h-4" /></button>
             <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 rounded-lg hover:bg-background disabled:opacity-30 transition-colors"><Redo2 className="w-4 h-4" /></button>
           </div>
+          
+          <input type="file" accept=".cortex" ref={fileInputRef} onChange={handleLoadProject} className="hidden" />
+          <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-secondary rounded-xl transition-colors text-muted-foreground hover:text-foreground flex items-center gap-2 text-sm font-medium">
+            <Upload className="w-4 h-4" /> Open
+          </button>
+
           <IconButton onClick={toggleTheme} icon={<><Sun className="w-5 h-5 dark:hidden" /><Moon className="w-5 h-5 hidden dark:block" /></>} />
           
           <div className="relative">
             <button onClick={() => setShowExportModal(!showExportModal)} className="bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-primary/20 flex items-center gap-2 group">
-              <Download className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" /> Export
+              <Download className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" /> Save
             </button>
             
             <AnimatePresence>
               {showExportModal && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-2xl shadow-2xl p-4 flex flex-col gap-4">
-                  <h4 className="font-bold text-sm">Export Settings</h4>
+                  <h4 className="font-bold text-sm">Save Options</h4>
+                  <button onClick={handleSaveProject} className="w-full py-2.5 bg-secondary hover:bg-secondary/80 text-foreground rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+                    <Save className="w-4 h-4" /> Save Project (.cortex)
+                  </button>
+                  <hr className="border-border" />
                   <label className="flex items-center gap-3 cursor-pointer">
                     <div className="relative flex items-center">
                       <input type="checkbox" checked={exportTransparent} onChange={(e) => setExportTransparent(e.target.checked)} className="peer sr-only" />
                       <div className="w-10 h-6 bg-secondary rounded-full peer-checked:bg-primary transition-colors"></div>
                       <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
                     </div>
-                    <span className="text-sm font-medium">Transparent Background</span>
+                    <span className="text-sm font-medium">Transparent PNG</span>
                   </label>
-                  <button onClick={handleExport} className="w-full py-2 bg-primary text-white rounded-lg font-semibold text-sm">Download PNG</button>
+                  <button onClick={handleExportPNG} className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold text-sm transition-colors">Export Image</button>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -118,6 +144,9 @@ const App: React.FC = () => {
           <div className="w-8 h-px bg-border my-1" />
           <IconButton active={activeTool === 'rect'} onClick={() => setTool('rect')} icon={<Square className="w-5 h-5" />} />
           <IconButton active={activeTool === 'circle'} onClick={() => setTool('circle')} icon={<Circle className="w-5 h-5" />} />
+          <div className="w-8 h-px bg-border my-1" />
+          <IconButton active={showGrid} onClick={() => setShowGrid(!showGrid)} icon={<Grid3X3 className="w-5 h-5" />} />
+          <IconButton onClick={() => { if(window.confirm('Clear entire canvas?')) clearCanvas(); }} icon={<Trash2 className="w-5 h-5 text-red-500" />} />
           
           <div className="flex-1" />
           <div className="relative group p-2 mb-2">
@@ -131,7 +160,7 @@ const App: React.FC = () => {
             <div className="pointer-events-auto w-full flex justify-center"><PromptBar /></div>
           </section>
           
-          <section className="flex-1 relative rounded-3xl overflow-hidden shadow-2xl border border-white/5 bg-zinc-100 dark:bg-zinc-900">
+          <section className="flex-1 relative rounded-3xl overflow-hidden shadow-2xl border border-border bg-zinc-100 dark:bg-zinc-900">
             <CanvasArea />
           </section>
         </main>
