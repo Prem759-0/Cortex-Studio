@@ -1,4 +1,4 @@
-======= FILE: src/components/PromptEngine/GenerationGallery.tsx =======
+
 import React from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { motion, AnimatePresence } from 'framer-motion';
