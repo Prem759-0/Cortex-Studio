@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Maximize2, Download } from 'lucide-react';
+import { Plus, Maximize2 } from 'lucide-react';
 
 export const GenerationGallery: React.FC = () => {
   const { generatedImages } = useCanvasStore();
