@@ -1,4 +1,4 @@
-======= FILE: src/components/Canvas/LayersPanel.tsx =======
+
 import React from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { Eye, EyeOff, Plus, Trash2, Layers } from 'lucide-react';
