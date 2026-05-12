@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -146,7 +145,7 @@ const App: React.FC = () => {
               <span className="text-[10px] font-mono font-bold w-6">{brushSize}px</span>
             </div>
             <CanvasArea />
-          </main>
+          </section>
         </main>
 
         {/* Right Asset & Layer Panel */}
