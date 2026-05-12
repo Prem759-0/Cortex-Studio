@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type Point = { x: number; y: number };
-export type ToolType = 'brush' | 'eraser' | 'move' | 'rect' | 'circle';
+export type ToolType = 'brush' | 'eraser' | 'move' | 'rect' | 'circle' | 'highlighter' | 'neon' | 'pan';
 
 export type Stroke = {
   id: string;
@@ -25,8 +25,16 @@ interface CanvasState {
   activeTool: ToolType;
   brushColor: string;
   brushSize: number;
+  
+  // Spatial Canvas (Figma-style)
+  zoom: number;
+  pan: { x: number; y: number };
+  
+  // AI Engine (Midjourney-style)
   isGenerating: boolean;
   generatedImages: string[];
+  aiStyle: string;
+  aiAspectRatio: string;
   
   // History State
   history: Layer[][];
@@ -39,6 +47,11 @@ interface CanvasState {
   setTool: (tool: ToolType) => void;
   setBrushColor: (color: string) => void;
   setBrushSize: (size: number) => void;
+  setZoom: (zoom: number | ((z: number) => number)) => void;
+  setPan: (pan: { x: number; y: number } | ((p: { x: number; y: number }) => { x: number; y: number })) => void;
+  setAiStyle: (style: string) => void;
+  setAiAspectRatio: (ratio: string) => void;
+  
   addLayer: () => void;
   removeLayer: (id: string) => void;
   setActiveLayer: (id: string) => void;
@@ -59,15 +72,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   activeTool: 'brush',
   brushColor: '#818cf8',
   brushSize: 5,
+  zoom: 1,
+  pan: { x: 0, y: 0 },
   isGenerating: false,
   generatedImages: [],
+  aiStyle: 'Cinematic',
+  aiAspectRatio: '1:1',
   history: [initialLayers],
   historyIndex: 0,
 
   saveHistory: () => set((state) => {
     const newHistory = state.history.slice(0, state.historyIndex + 1);
-    newHistory.push(JSON.parse(JSON.stringify(state.layers))); // Deep copy
-    // Keep max 20 history states to prevent memory leaks
+    newHistory.push(JSON.parse(JSON.stringify(state.layers))); 
     if (newHistory.length > 20) newHistory.shift(); 
     return { history: newHistory, historyIndex: newHistory.length - 1 };
   }),
@@ -91,6 +107,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   setTool: (tool) => set({ activeTool: tool }),
   setBrushColor: (color) => set({ brushColor: color }),
   setBrushSize: (size) => set({ brushSize: size }),
+  setZoom: (zoom) => set((state) => ({ zoom: typeof zoom === 'function' ? zoom(state.zoom) : zoom })),
+  setPan: (pan) => set((state) => ({ pan: typeof pan === 'function' ? pan(state.pan) : pan })),
+  setAiStyle: (style) => set({ aiStyle: style }),
+  setAiAspectRatio: (ratio) => set({ aiAspectRatio: ratio }),
   
   addLayer: () => {
     set((state) => {
