@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Palette, 
   Wand2, 
@@ -11,8 +11,7 @@ import {
   History,
   Layout,
   MousePointer2,
-  Share2,
-  Layers as LayersIcon
+  Share2
 } from 'lucide-react';
 
 import { CanvasArea } from './components/Canvas/CanvasArea';
